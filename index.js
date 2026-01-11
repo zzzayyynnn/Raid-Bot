@@ -53,7 +53,7 @@ async function checkTimeAndPost() {
 
   if (minute === 0 || minute === 30) {
     // PORTAL UPDATE (post sunod sa current)
-    const currentPortal = raids[(currentIndex + 1) % raids.length]; // post this first
+    const currentPortal = raids[(currentIndex + 1) % raids.length]; // first post
     const nextPortal = raids[(currentIndex + 2) % raids.length];    // next portal
 
     // ✅ Message with highlights
