@@ -15,15 +15,15 @@ const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 let currentIndex = raids.indexOf(startRaid);
 if (currentIndex === -1) currentIndex = 0; // fallback
 
-// User to mention in raid posts
-const userId = "1459992956743188623";
+// Role to mention in RAID UPDATE
+const roleId = "1459992956743188623"; // replace with your actual ROLE ID
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   setInterval(checkTimeAndPost, 1000); // check every second
 });
 
-let lastPostedMinute = null; // prevent duplicate posts
+let lastPostedQuarter = null; // prevent duplicate posts per quarter
 
 async function checkTimeAndPost() {
   const now = new Date();
@@ -38,9 +38,10 @@ async function checkTimeAndPost() {
   // Only at :00, :15, :30, :45
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  // Avoid duplicate posts per minute
-  if (lastPostedMinute === minute) return;
-  lastPostedMinute = minute;
+  // Track quarter-hour to prevent multiple posts
+  const currentQuarter = `${hour}:${minute}`;
+  if (lastPostedQuarter === currentQuarter) return; // already posted
+  lastPostedQuarter = currentQuarter;
 
   const channel = await client.channels.fetch(raidChannelId).catch(err => {
     console.error("Failed to fetch channel:", err);
@@ -48,7 +49,7 @@ async function checkTimeAndPost() {
   if (!channel) return;
 
   if (minute === 0 || minute === 30) {
-    // RAID POST
+    // RAID UPDATE
     const currentRaid = raids[currentIndex];
     const nextRaid = raids[(currentIndex + 1) % raids.length];
 
@@ -65,18 +66,18 @@ async function checkTimeAndPost() {
 ➤ No fear. No retreat. Only victory.
 
 ⏰ Prepare yourselves. 
-<@${userId}>
+<@&${roleId}>
 `;
 
-    channel.send(message).catch(err => console.error("Failed to send message:", err));
+    await channel.send(message).catch(err => console.error("Failed to send message:", err));
 
-    // Advance rotation AFTER post
+    // Advance rotation AFTER posting
     currentIndex = (currentIndex + 1) % raids.length;
 
   } else {
-    // REMINDER at :15/:45, no ping, no rotation change
+    // REMINDER at :15/:45 (no ping, no rotation change)
     const reminderMessage = `⏰ RAID Reminder! Get ready for the next raid!`;
-    channel.send(reminderMessage).catch(err => console.error("Failed to send reminder:", err));
+    await channel.send(reminderMessage).catch(err => console.error("Failed to send reminder:", err));
   }
 }
 
