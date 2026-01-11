@@ -10,7 +10,7 @@ if (!token) {
   process.exit(1);
 }
 
-// Raid list rotation
+// Raid rotation
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 let currentIndex = raids.indexOf(startRaid);
 if (currentIndex === -1) currentIndex = 0; // fallback
@@ -32,7 +32,7 @@ async function checkTimeAndPost() {
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
 
-  // Only trigger at exact 0 second
+  // Trigger only at exact 0 second
   if (second !== 0) return;
 
   // Only at :00, :15, :30, :45
@@ -48,7 +48,7 @@ async function checkTimeAndPost() {
   if (!channel) return;
 
   if (minute === 0 || minute === 30) {
-    // Normal raid post
+    // RAID POST
     const currentRaid = raids[currentIndex];
     const nextRaid = raids[(currentIndex + 1) % raids.length];
 
@@ -70,11 +70,11 @@ async function checkTimeAndPost() {
 
     channel.send(message).catch(err => console.error("Failed to send message:", err));
 
-    // Advance rotation only AFTER posting at :30 or :00
+    // Advance rotation AFTER post
     currentIndex = (currentIndex + 1) % raids.length;
 
   } else {
-    // :15/:45 → Reminder only, no mention, no rotation change
+    // REMINDER at :15/:45, no ping, no rotation change
     const reminderMessage = `⏰ RAID Reminder! Get ready for the next raid!`;
     channel.send(reminderMessage).catch(err => console.error("Failed to send reminder:", err));
   }
