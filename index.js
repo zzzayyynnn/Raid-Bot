@@ -4,7 +4,7 @@ const { token, raidChannelId, startRaid } = require("./config.json");
 
 // Raid list
 const raids = ["Goblin", "Subway", "Infernal", "Insect", "Igris", "Elves"];
-let currentIndex = raids.indexOf(startRaid);
+const rotationMinutes = 30; // Change raid every 30 mins
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -18,6 +18,7 @@ async function checkTimeAndPost() {
 
   // Philippine Time UTC+8
   const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const hour = phTime.getHours();
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
 
@@ -25,13 +26,30 @@ async function checkTimeAndPost() {
   if (second !== 0) return;
 
   // Only post at :00, :15, :30, :45
-  if (minute % 15 !== 0) return;
+  if (![0, 15, 30, 45].includes(minute)) return;
 
   const channel = await client.channels.fetch(raidChannelId);
   if (!channel) return;
 
-  const currentRaid = raids[currentIndex];
-  const nextRaid = raids[(currentIndex + 1) % raids.length];
+  let currentRaid;
+  let nextRaid;
+
+  // Calculate time-based index for rotation
+  // Every 30 minutes = 1 rotation step
+  const totalMinutes = hour * 60 + minute;
+  let timeIndex = Math.floor(totalMinutes / rotationMinutes) % raids.length;
+
+  if (minute === 15 || minute === 45) {
+    // Special case: always Infernal
+    currentRaid = "Infernal";
+
+    // Next raid in rotation after the timeIndex
+    nextRaid = raids[(timeIndex + 1) % raids.length];
+  } else {
+    // Normal rotation
+    currentRaid = raids[timeIndex];
+    nextRaid = raids[(timeIndex + 1) % raids.length];
+  }
 
   const message = `
 🔥 RAID UPDATE 🔥
@@ -49,11 +67,6 @@ async function checkTimeAndPost() {
 `;
 
   channel.send(message);
-
-  // Change raid only at :00 and :30
-  if (minute === 0 || minute === 30) {
-    currentIndex = (currentIndex + 1) % raids.length;
-  }
 }
 
 client.login(token);
