@@ -26,7 +26,8 @@ client.once("ready", () => {
   setInterval(checkTimeAndPost, 1000); // check every second
 });
 
-let lastPostedQuarter = null; // prevent duplicate posts per quarter
+// --- Prevent multiple posts ---
+let lastPostedTimestamp = 0; // exact timestamp of last post
 
 async function checkTimeAndPost() {
   const now = new Date();
@@ -41,10 +42,10 @@ async function checkTimeAndPost() {
   // Only at :00, :15, :30, :45
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  // Track quarter-hour to prevent multiple posts
-  const currentQuarter = `${hour}:${minute}`;
-  if (lastPostedQuarter === currentQuarter) return; // already posted
-  lastPostedQuarter = currentQuarter;
+  // Use a timestamp for the current quarter to prevent duplicate posts
+  const currentQuarterTimestamp = phTime.setSeconds(0, 0);
+  if (lastPostedTimestamp === currentQuarterTimestamp) return; // already posted
+  lastPostedTimestamp = currentQuarterTimestamp;
 
   const channel = await client.channels.fetch(raidChannelId).catch(err => {
     console.error("Failed to fetch channel:", err);
@@ -52,11 +53,10 @@ async function checkTimeAndPost() {
   if (!channel) return;
 
   if (minute === 0 || minute === 30) {
-    // PORTAL UPDATE (post sunod sa current)
-    const currentPortal = raids[(currentIndex + 1) % raids.length]; // first post
-    const nextPortal = raids[(currentIndex + 2) % raids.length];    // next portal
+    // PORTAL UPDATE
+    const currentPortal = raids[(currentIndex + 1) % raids.length];
+    const nextPortal = raids[(currentIndex + 2) % raids.length];
 
-    // ✅ Message with highlights
     const message = `
 🔥 PORTAL UPDATE 🔥 
 
@@ -87,8 +87,6 @@ async function checkTimeAndPost() {
 
 // --- Express Dummy Server for Render ---
 const app = express();
-
-// Use Render-assigned port
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => res.send("Discord Bot is running ✅"));
