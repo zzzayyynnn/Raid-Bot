@@ -1,6 +1,14 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-const { token, raidChannelId, startRaid } = require("./config.json");
+const { raidChannelId, startRaid } = require("./config.json");
+
+// Get token from environment variable
+const token = process.env.TOKEN;
+
+if (!token) {
+  console.error("TOKEN env variable not found! Set it sa Render Environment Variables!");
+  process.exit(1);
+}
 
 // Raid list
 const raids = ["Goblin", "Subway", "Infernal", "Insect", "Igris", "Elves"];
@@ -28,7 +36,9 @@ async function checkTimeAndPost() {
   // Only post at :00, :15, :30, :45
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  const channel = await client.channels.fetch(raidChannelId);
+  const channel = await client.channels.fetch(raidChannelId).catch(err => {
+    console.error("Failed to fetch channel:", err);
+  });
   if (!channel) return;
 
   let currentRaid;
@@ -42,8 +52,6 @@ async function checkTimeAndPost() {
   if (minute === 15 || minute === 45) {
     // Special case: always Infernal
     currentRaid = "Infernal";
-
-    // Next raid in rotation after the timeIndex
     nextRaid = raids[(timeIndex + 1) % raids.length];
   } else {
     // Normal rotation
@@ -66,7 +74,7 @@ async function checkTimeAndPost() {
 ⏰ Prepare yourselves.
 `;
 
-  channel.send(message);
+  channel.send(message).catch(err => console.error("Failed to send message:", err));
 }
 
 client.login(token);
