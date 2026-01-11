@@ -1,14 +1,17 @@
+// index.js
 const { Client, GatewayIntentBits } = require("discord.js");
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const express = require("express");
 const { raidChannelId, startRaid } = require("./config.json");
 
-// Token from environment variable
+// --- Discord Bot Token ---
 const token = process.env.TOKEN;
-
 if (!token) {
-  console.error("TOKEN env variable not found! Set it sa Render Environment Variables!");
+  console.error("TOKEN env variable not found! Set it in Render Environment Variables!");
   process.exit(1);
 }
+
+// --- Discord Bot Setup ---
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // Raid rotation
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
@@ -81,4 +84,15 @@ async function checkTimeAndPost() {
   }
 }
 
+// --- Express Dummy Server for Render ---
+const app = express();
+
+// Use Render-assigned port
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => res.send("Discord Bot is running ✅"));
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// --- Login Discord Bot ---
 client.login(token);
