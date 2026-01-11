@@ -13,12 +13,12 @@ if (!token) {
 // --- Discord Bot Setup ---
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Raid rotation
+// Portal rotation
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 let currentIndex = raids.indexOf(startRaid);
 if (currentIndex === -1) currentIndex = 0; // fallback
 
-// Role to mention in RAID UPDATE
+// Role to mention in PORTAL UPDATE
 const roleId = "1459992956743188623"; // replace with your actual ROLE ID
 
 client.once("ready", () => {
@@ -52,18 +52,19 @@ async function checkTimeAndPost() {
   if (!channel) return;
 
   if (minute === 0 || minute === 30) {
-    // RAID UPDATE
-    const currentRaid = raids[currentIndex];
-    const nextRaid = raids[(currentIndex + 1) % raids.length];
+    // PORTAL UPDATE (post sunod sa current)
+    const currentPortal = raids[(currentIndex + 1) % raids.length]; // post this first
+    const nextPortal = raids[(currentIndex + 2) % raids.length];    // next portal
 
+    // ✅ Message with highlights
     const message = `
-🔥 RAID UPDATE 🔥
+🔥 PORTAL UPDATE 🔥 
 
-🗡️ Current Raid:
-➤ ${currentRaid}
+🗡️ Current Portal: 
+➤ **${currentPortal}**
 
-⏭️ Next Raid:
-➤ ${nextRaid}
+⏭️ Next Portal: 
+➤ **${nextPortal}**
 
 💪 Motivation:
 ➤ No fear. No retreat. Only victory.
@@ -79,7 +80,7 @@ async function checkTimeAndPost() {
 
   } else {
     // REMINDER at :15/:45 (no ping, no rotation change)
-    const reminderMessage = `⏰ RAID Reminder! Get ready for the next raid!`;
+    const reminderMessage = `⏰ PORTAL Reminder! Get ready for the next portal!`;
     await channel.send(reminderMessage).catch(err => console.error("Failed to send reminder:", err));
   }
 }
