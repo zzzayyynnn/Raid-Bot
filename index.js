@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits } = require("discord.js");
 const express = require("express");
-const { raidChannelId, startRaid } = require("./config.json");
+const { raidChannelId } = require("./config.json");
 
 // --- Discord Bot Token ---
 const token = process.env.TOKEN;
@@ -10,14 +10,14 @@ if (!token) {
 }
 
 // --- Discord Client ---
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // --- RAID ROTATION ---
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 
-let currentIndex = raids.indexOf(startRaid);
+// ✅ Setup current index base sa last posted portal
+// I assume last posted = Igris at 1:00 PM → so next = Elves
+let currentIndex = raids.indexOf("Elves"); // first post when bot starts = Elves
 if (currentIndex === -1) currentIndex = 0;
 
 // --- RAID ROLE IDS ---
@@ -30,56 +30,60 @@ const raidRoles = {
   Elves: "1460131344205218018",
 };
 
+// --- Prevent double posts ---
+let lastPostedQuarter = null;
+
 // --- READY ---
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   setInterval(checkTimeAndPost, 1000); // check every second
 });
 
-// --- PREVENT DUPLICATE POSTS ---
-let lastPostedTimestamp = 0;
-
 // --- MAIN LOOP ---
 async function checkTimeAndPost() {
   const now = new Date();
-  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH time
+  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH UTC+8
 
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
 
-  // Only exact 0 second
   if (second !== 0) return;
-
-  // Only quarter hours
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  const currentQuarterTimestamp = phTime.setSeconds(0, 0);
-  if (lastPostedTimestamp === currentQuarterTimestamp) return;
-  lastPostedTimestamp = currentQuarterTimestamp;
+  // unique key per quarter: YYYYMMDDHHMM
+  const currentQuarter = phTime.getFullYear().toString() +
+                         (phTime.getMonth() + 1).toString().padStart(2,'0') +
+                         phTime.getDate().toString().padStart(2,'0') +
+                         phTime.getHours().toString().padStart(2,'0') +
+                         minute.toString().padStart(2,'0');
+
+  if (lastPostedQuarter === currentQuarter) return; // already posted
+  lastPostedQuarter = currentQuarter;
 
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
   // --- PORTAL UPDATE ---
   if (minute === 0 || minute === 30) {
-    const currentPortal = raids[(currentIndex + 1) % raids.length];
-    const nextPortal = raids[(currentIndex + 2) % raids.length];
+    const currentPortal = raids[currentIndex]; // ✅ actual current
+    const nextPortal = raids[(currentIndex + 1) % raids.length];
 
     const roleId = raidRoles[currentPortal];
     const rolePing = roleId ? `<@&${roleId}>` : "";
 
     const message = `
-🔥 **PORTAL UPDATE** 🔥
+🌀 PORTAL UPDATE 🌀
 
-🗡️ **Current Portal**
+🗡️ Current Portal: 
 ➤ **${currentPortal}**
 
-⏭️ **Next Portal**
+⏭️ Next Portal: 
 ➤ **${nextPortal}**
 
-💪 No fear. No retreat. Only victory.
+💪➤  No fear. No retreat. Only victory.
 
-${rolePing}
+⏰ Prepare yourselves. 
+🔔 ${rolePing}
     `;
 
     await channel.send(message);
@@ -90,9 +94,7 @@ ${rolePing}
   } 
   // --- REMINDER ---
   else {
-    await channel.send(
-      "⏰ **PORTAL Reminder!** Get ready for the next portal!"
-    );
+    await channel.send("⏰ **PORTAL Reminder!** Get ready for the next portal!");
   }
 }
 
@@ -100,9 +102,7 @@ ${rolePing}
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => {
-  res.send("Discord Bot is running ✅");
-});
+app.get("/", (req, res) => res.send("Discord Bot is running ✅"));
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
