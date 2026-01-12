@@ -1,4 +1,3 @@
-// index.js
 const { Client, GatewayIntentBits } = require("discord.js");
 const express = require("express");
 const { raidChannelId, startRaid } = require("./config.json");
@@ -10,88 +9,104 @@ if (!token) {
   process.exit(1);
 }
 
-// --- Discord Bot Setup ---
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+// --- Discord Client ---
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds],
+});
 
-// Portal rotation
+// --- RAID ROTATION ---
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
+
 let currentIndex = raids.indexOf(startRaid);
-if (currentIndex === -1) currentIndex = 0; // fallback
+if (currentIndex === -1) currentIndex = 0;
 
-// Role to mention in PORTAL UPDATE
-const roleId = "1459992956743188623"; // replace with your actual ROLE ID
+// --- RAID ROLE IDS ---
+const raidRoles = {
+  Insect: "1460130634000236769",
+  Igris: "1460130485702365387",
+  Infernal: "1460130564353953872",
+  Goblin: "1460130693895159982",
+  Subway: "1460130735175499862",
+  Elves: "1460131344205218018",
+};
 
+// --- READY ---
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   setInterval(checkTimeAndPost, 1000); // check every second
 });
 
-// --- Prevent multiple posts ---
-let lastPostedTimestamp = 0; // exact timestamp of last post
+// --- PREVENT DUPLICATE POSTS ---
+let lastPostedTimestamp = 0;
 
+// --- MAIN LOOP ---
 async function checkTimeAndPost() {
   const now = new Date();
-  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH UTC+8
-  const hour = phTime.getHours();
+  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH time
+
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
 
-  // Trigger only at exact 0 second
+  // Only exact 0 second
   if (second !== 0) return;
 
-  // Only at :00, :15, :30, :45
+  // Only quarter hours
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  // Use a timestamp for the current quarter to prevent duplicate posts
   const currentQuarterTimestamp = phTime.setSeconds(0, 0);
-  if (lastPostedTimestamp === currentQuarterTimestamp) return; // already posted
+  if (lastPostedTimestamp === currentQuarterTimestamp) return;
   lastPostedTimestamp = currentQuarterTimestamp;
 
-  const channel = await client.channels.fetch(raidChannelId).catch(err => {
-    console.error("Failed to fetch channel:", err);
-  });
+  const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
+  // --- PORTAL UPDATE ---
   if (minute === 0 || minute === 30) {
-    // PORTAL UPDATE
     const currentPortal = raids[(currentIndex + 1) % raids.length];
     const nextPortal = raids[(currentIndex + 2) % raids.length];
 
-    const message = `
-🔥 PORTAL UPDATE 🔥 
+    const roleId = raidRoles[currentPortal];
+    const rolePing = roleId ? `<@&${roleId}>` : "";
 
-🗡️ Current Portal: 
+    const message = `
+🔥 **PORTAL UPDATE** 🔥
+
+🗡️ **Current Portal**
 ➤ **${currentPortal}**
 
-⏭️ Next Portal: 
+⏭️ **Next Portal**
 ➤ **${nextPortal}**
 
-💪 Motivation:
-➤ No fear. No retreat. Only victory.
+💪 No fear. No retreat. Only victory.
 
-⏰ Prepare yourselves. 
-<@&${roleId}>
-`;
+${rolePing}
+    `;
 
-    await channel.send(message).catch(err => console.error("Failed to send message:", err));
+    await channel.send(message);
 
-    // Advance rotation AFTER posting
+    // advance rotation AFTER posting
     currentIndex = (currentIndex + 1) % raids.length;
 
-  } else {
-    // REMINDER at :15/:45 (no ping, no rotation change)
-    const reminderMessage = `⏰ PORTAL Reminder! Get ready for the next portal!`;
-    await channel.send(reminderMessage).catch(err => console.error("Failed to send reminder:", err));
+  } 
+  // --- REMINDER ---
+  else {
+    await channel.send(
+      "⏰ **PORTAL Reminder!** Get ready for the next portal!"
+    );
   }
 }
 
-// --- Express Dummy Server for Render ---
+// --- EXPRESS SERVER (RENDER) ---
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get("/", (req, res) => res.send("Discord Bot is running ✅"));
+app.get("/", (req, res) => {
+  res.send("Discord Bot is running ✅");
+});
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
-// --- Login Discord Bot ---
+// --- LOGIN ---
 client.login(token);
