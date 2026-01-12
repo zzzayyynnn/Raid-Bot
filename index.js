@@ -19,8 +19,8 @@ const client = new Client({
 // --- RAID ROTATION ---
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 
-// ✅ STARTING PORTAL = SUBWAY
-let currentIndex = raids.indexOf("Subway");
+// ✅ STARTING PORTAL = INSECT
+let currentIndex = raids.indexOf("Insect");
 if (currentIndex === -1) currentIndex = 0;
 
 // --- RAID ROLE IDS (Updated) ---
@@ -77,7 +77,6 @@ async function checkTimeAndPost() {
     const roleId = raidRoles[currentPortal];
     const rolePing = roleId ? `<@&${roleId}>` : "";
 
-    // Hunter-style framed message
     const portalMessage = `
 ╔════════〔 PORTAL UPDATE 〕════════╗
 ║ ▶ CURRENT DUNGEON : ${currentPortal}
@@ -91,12 +90,13 @@ ${rolePing}
 
     await channel.send(portalMessage);
 
-    // Move to next portal
+    // Move to next portal **after posting**
     currentIndex = (currentIndex + 1) % raids.length;
   }
   // --- REMINDER (15 & 45) ---
   else {
-    const reminderMessage = `───〔 HUNTER ALERT 〕─── Be ready, hunters… your hunt begins — next dungeon: ${nextPortal}`;
+    const upcomingPortal = raids[currentIndex]; // show the portal that will come next
+    const reminderMessage = `───〔 HUNTER ALERT 〕─── Be ready, hunters… your hunt begins — next dungeon: ${upcomingPortal}`;
     await channel.send(reminderMessage);
   }
 }
