@@ -19,8 +19,8 @@ const client = new Client({
 // --- RAID ROTATION ---
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
 
-// ✅ STARTING PORTAL = INSECT
-let currentIndex = raids.indexOf("Insect");
+// ✅ STARTING PORTAL = IGRIS
+let currentIndex = raids.indexOf("Igris");
 if (currentIndex === -1) currentIndex = 0;
 
 // --- RAID ROLE IDS (Updated) ---
