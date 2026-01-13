@@ -1,29 +1,27 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const express = require("express");
 
-// --- Discord Bot Token ---
+// ================= CONFIG =================
 const token = process.env.TOKEN;
 if (!token) {
-  console.error("TOKEN env variable not found! Set it in Render Environment Variables!");
+  console.error("TOKEN env variable not found!");
   process.exit(1);
 }
 
-// --- CHANNEL ID ---
-const raidChannelId = "1459967642621448316"; // Updated channel
+// Updated raid channel ID
+const raidChannelId = "1459967642621448316";
 
-// --- Discord Client ---
+// ================= CLIENT =================
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-// --- RAID ROTATION ---
+// ================= RAID ROTATION =================
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
-
-// ✅ STARTING PORTAL = IGRIS
-let currentIndex = raids.indexOf("Igris");
+let currentIndex = raids.indexOf("Igris"); // First post should be Igris
 if (currentIndex === -1) currentIndex = 0;
 
-// --- RAID ROLE IDS (Updated) ---
+// ================= ROLE IDS =================
 const raidRoles = {
   Insect: "1460130634000236769",
   Igris: "1460130485702365387",
@@ -33,21 +31,31 @@ const raidRoles = {
   Elves: "1460131344205218018",
 };
 
-// --- Prevent double posts ---
+// ================= THUMBNAILS / IMAGES =================
+const dungeonImages = {
+  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649062020677662/5555d8b30006ff3c2f25f4ab05a748d2.png",
+  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649474601910332/image.png",
+  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649155746599205/image.png",
+  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649284214194497/image.png",
+  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460650252016156973/image.png",
+  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649853548761251/image.png",
+};
+
+// ================= PREVENT DOUBLE POST =================
 let lastPostedQuarter = null;
 
-// --- READY ---
-client.once("ready", () => {
+// ================= READY =================
+client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  // Automatic rotation posts
   setInterval(checkTimeAndPost, 1000);
 });
 
-// --- MAIN LOOP ---
+// ================= MAIN LOOP =================
 async function checkTimeAndPost() {
   const now = new Date();
-
-  // PH Time (UTC+8)
-  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH time
 
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
@@ -55,7 +63,6 @@ async function checkTimeAndPost() {
   if (second !== 0) return;
   if (![0, 15, 30, 45].includes(minute)) return;
 
-  // Unique key per quarter to prevent double post
   const currentQuarter =
     phTime.getFullYear() +
     String(phTime.getMonth() + 1).padStart(2, "0") +
@@ -72,46 +79,59 @@ async function checkTimeAndPost() {
   const currentPortal = raids[currentIndex];
   const nextPortal = raids[(currentIndex + 1) % raids.length];
 
-  // --- PORTAL UPDATE (00 & 30) ---
   if (minute === 0 || minute === 30) {
-    const roleId = raidRoles[currentPortal];
-    const rolePing = roleId ? `<@&${roleId}>` : "";
+    // Active dungeon
+    const rolePing = raidRoles[currentPortal]
+      ? `<@&${raidRoles[currentPortal]}>`
+      : "";
 
-    const portalMessage = `
-╔════════〔 PORTAL UPDATE 〕════════╗
-║ ▶ CURRENT DUNGEON : ${currentPortal}
-║ ▷ NEXT DUNGEON    : ${nextPortal}
-║
-║ ⚔️ No fear. No retreat. Only victory.
-║ 🛡️ Be ready, hunters… your hunt begins.
-╚═══════════════════════════════════╝
-${rolePing}
-`;
+    const embed = new EmbedBuilder()
+      .setColor(0x05070f)
+      .setTitle("「 SYSTEM — DUNGEON STATUS 」")
+      .setDescription(
+        [
+          "━━━━━━━━━━━━━━━━━━",
+          "**⚔️ ACTIVE DUNGEON**",
+          `> ${currentPortal}`,
+          "",
+          "**➡️ NEXT DUNGEON**",
+          `> ${nextPortal}`,
+          "━━━━━━━━━━━━━━━━━━",
+          "_Your dungeon has spawned. Hunters,\nbe ready—only the strong survive._",
+        ].join("\n")
+      )
+      .setImage(dungeonImages[currentPortal]) // big image
+      .setFooter({ text: "ARISE." })
+      .setTimestamp();
 
-    await channel.send(portalMessage);
-
-    // Move to next portal **after posting**
+    await channel.send({ content: rolePing, embeds: [embed] });
     currentIndex = (currentIndex + 1) % raids.length;
-  }
-  // --- REMINDER (15 & 45) ---
-  else {
-    const upcomingPortal = raids[currentIndex]; // show the portal that will come next
-    const reminderMessage = `───〔 HUNTER ALERT 〕─── Be ready, hunters… your hunt begins — next dungeon: ${upcomingPortal}`;
-    await channel.send(reminderMessage);
+  } else {
+    // Reminder for upcoming dungeon (nextPortal)
+    const reminderEmbed = new EmbedBuilder()
+      .setColor(0x11162a)
+      .setTitle("「 SYSTEM WARNING 」")
+      .setDescription(
+        [
+          "━━━━━━━━━━━━━━━━━━",
+          "**🗡️ UPCOMING DUNGEON**",
+          `> ${nextPortal}`,
+          "",
+          "_Prepare yourselves, hunters!_",
+          "━━━━━━━━━━━━━━━━━━",
+        ].join("\n")
+      )
+      .setImage(dungeonImages[nextPortal])
+      .setTimestamp();
+
+    await channel.send({ embeds: [reminderEmbed] });
   }
 }
 
-// --- EXPRESS SERVER (RENDER KEEP-ALIVE) ---
+// ================= EXPRESS (KEEP ALIVE) =================
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.get("/", (_, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000);
 
-app.get("/", (req, res) => {
-  res.send("Discord Bot is running ✅");
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// --- LOGIN ---
+// ================= LOGIN =================
 client.login(token);
