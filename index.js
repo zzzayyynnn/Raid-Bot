@@ -18,8 +18,7 @@ const client = new Client({
 
 // ================= RAID ROTATION =================
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
-let currentIndex = raids.indexOf("Igris"); // First post should be Igris
-if (currentIndex === -1) currentIndex = 0;
+let currentIndex = raids.indexOf("Goblin"); // First active dungeon = Goblin
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -47,8 +46,6 @@ let lastPostedQuarter = null;
 // ================= READY =================
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
-
-  // Automatic rotation posts
   setInterval(checkTimeAndPost, 1000);
 });
 
@@ -77,13 +74,11 @@ async function checkTimeAndPost() {
   if (!channel) return;
 
   const currentPortal = raids[currentIndex];
-  const nextPortal = raids[(currentIndex + 1) % raids.length];
+  const nextPortal = raids[(currentIndex + 1) % raids.length]; // always the upcoming dungeon
 
   if (minute === 0 || minute === 30) {
     // Active dungeon
-    const rolePing = raidRoles[currentPortal]
-      ? `<@&${raidRoles[currentPortal]}>`
-      : "";
+    const rolePing = raidRoles[currentPortal] ? `<@&${raidRoles[currentPortal]}>` : "";
 
     const embed = new EmbedBuilder()
       .setColor(0x05070f)
@@ -100,14 +95,17 @@ async function checkTimeAndPost() {
           "_Your dungeon has spawned. Hunters,\nbe ready—only the strong survive._",
         ].join("\n")
       )
-      .setImage(dungeonImages[currentPortal]) // big image
+      .setImage(dungeonImages[currentPortal])
       .setFooter({ text: "ARISE." })
       .setTimestamp();
 
     await channel.send({ content: rolePing, embeds: [embed] });
+
+    // increment after posting active dungeon
     currentIndex = (currentIndex + 1) % raids.length;
+
   } else {
-    // Reminder for upcoming dungeon (nextPortal)
+    // Reminder for upcoming dungeon
     const reminderEmbed = new EmbedBuilder()
       .setColor(0x11162a)
       .setTitle("「 SYSTEM WARNING 」")
@@ -115,7 +113,7 @@ async function checkTimeAndPost() {
         [
           "━━━━━━━━━━━━━━━━━━",
           "**🗡️ UPCOMING DUNGEON**",
-          `> ${nextPortal}`,
+          `> ${nextPortal}`, // always shows correct next dungeon
           "",
           "_Prepare yourselves, hunters!_",
           "━━━━━━━━━━━━━━━━━━",
