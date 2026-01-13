@@ -17,7 +17,7 @@ const client = new Client({
 
 // ================= RAID ROTATION =================
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
-let currentIndex = raids.indexOf("Elves"); // First active dungeon = Elves
+let currentIndex = raids.indexOf("Goblin"); // First active dungeon = Goblin
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -135,28 +135,25 @@ async function checkTimeAndPost() {
   const now = new Date();
   const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH time
 
-  const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
-
-  if (second !== 0) return; // run only at start of the second
+  if (second !== 0) return; // only run at start of second
 
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  // Calculate next dungeon time (every 30 mins)
+  // Active dungeon rotates every 30 mins
   const nextDungeonMinutes = phTime.getMinutes() < 30 ? 30 : 60;
   const nextDungeonTime = new Date(phTime);
   nextDungeonTime.setMinutes(nextDungeonMinutes);
   nextDungeonTime.setSeconds(0);
   nextDungeonTime.setMilliseconds(0);
 
-  const diffMs = nextDungeonTime - phTime;
-  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffSeconds = Math.floor((nextDungeonTime - phTime) / 1000);
 
   const currentPortal = raids[currentIndex];
   const nextPortal = raids[(currentIndex + 1) % raids.length];
 
-  // Reminder: 10 minutes before active dungeon
+  // Reminder 10 minutes before active dungeon → always Subway
   if (diffSeconds <= 10 * 60 && diffSeconds > 10 * 60 - 1) {
     if (countdownInterval) clearInterval(countdownInterval);
     if (countdownMessage) await countdownMessage.delete().catch(() => {});
@@ -164,7 +161,7 @@ async function checkTimeAndPost() {
     countdownMessage = null;
     rolePingSent = false;
 
-    startLiveCountdown(channel, nextPortal, dungeonImages[nextPortal], 10 * 60, 3 * 60); // countdown 10min, ping at 3min
+    startLiveCountdown(channel, "Subway", dungeonImages["Subway"], 10 * 60, 3 * 60); // 10min countdown, ping at 3min
   }
 
   // Active dungeon post
