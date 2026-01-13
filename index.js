@@ -18,7 +18,7 @@ const client = new Client({
 
 // ================= RAID ROTATION =================
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
-let currentIndex = raids.indexOf("Goblin"); // First active dungeon = Goblin
+let currentIndex = raids.indexOf("Infernal"); // First active dungeon = Infernal
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -32,12 +32,12 @@ const raidRoles = {
 
 // ================= THUMBNAILS / IMAGES =================
 const dungeonImages = {
-  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649062020677662/5555d8b30006ff3c2f25f4ab05a748d2.png",
-  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649474601910332/image.png",
-  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649155746599205/image.png",
-  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649284214194497/image.png",
-  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460650252016156973/image.png",
-  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460649853548761251/image.png",
+  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695534078529679/image.png",
+  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696594457563291/image.png",
+  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
+  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
+  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460697434920587489/image.png",
+  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
 };
 
 // ================= PREVENT DOUBLE POST =================
@@ -113,7 +113,7 @@ async function checkTimeAndPost() {
         [
           "━━━━━━━━━━━━━━━━━━",
           "**🗡️ UPCOMING DUNGEON**",
-          `> ${nextPortal}`, // always shows correct next dungeon
+          `> ${nextPortal}`,
           "",
           "_Prepare yourselves, hunters!_",
           "━━━━━━━━━━━━━━━━━━",
