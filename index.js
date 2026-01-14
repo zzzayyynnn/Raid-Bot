@@ -1,5 +1,7 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
 // ================= CONFIG =================
 const token = process.env.TOKEN;
@@ -9,6 +11,7 @@ if (!token) {
 }
 
 const raidChannelId = "1459967642621448316";
+const stateFile = path.join(__dirname, "state.json");
 
 // ================= CLIENT =================
 const client = new Client({
@@ -16,8 +19,22 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-const raids = ["Goblin", "Subway", "Elves", "Igris", "Infernal", "Insect"];
-let currentIndex = 0;
+// ✅ FIRST ACTIVE = SUBWAY
+const raids = ["Subway", "Elves", "Igris", "Infernal", "Insect", "Goblin"];
+
+// ================= LOAD / SAVE STATE =================
+function loadState() {
+  if (!fs.existsSync(stateFile)) {
+    return { currentIndex: 0 };
+  }
+  return JSON.parse(fs.readFileSync(stateFile, "utf8"));
+}
+
+function saveState(index) {
+  fs.writeFileSync(stateFile, JSON.stringify({ currentIndex: index }));
+}
+
+let { currentIndex } = loadState();
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -40,19 +57,23 @@ const dungeonImages = {
 };
 
 let lastReminderMessage = null;
-let pingPostedAtFive = false;
+let pingPostedAtThree = false;
 let lastTick = null;
 
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
+  console.log(`Resuming at dungeon: ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
 // ================= REMINDER =================
 async function postReminder(channel, dungeon) {
-  let minutes = 10;
-  pingPostedAtFive = false;
+  let totalSeconds = 10 * 60; // 10:00
+  pingPostedAtThree = false;
+
+  const format = (s) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const embed = new EmbedBuilder()
     .setColor(0x11162a)
@@ -63,7 +84,7 @@ async function postReminder(channel, dungeon) {
         "**🗡️ UPCOMING DUNGEON**",
         `> ${dungeon}`,
         "",
-        `⏱️ Starts in: ${minutes} min`,
+        `⏱️ Starts in: ${format(totalSeconds)}`,
         "_Prepare yourselves, hunters!_",
         "━━━━━━━━━━━━━━━━━━",
       ].join("\n")
@@ -74,68 +95,41 @@ async function postReminder(channel, dungeon) {
   lastReminderMessage = await channel.send({ embeds: [embed] });
 
   const interval = setInterval(async () => {
-    minutes--;
+    totalSeconds--;
 
-    // 🔔 POST ROLE PING AT EXACTLY 5 MINUTES
-    if (minutes === 5 && !pingPostedAtFive) {
-      pingPostedAtFive = true;
+    // 🔔 ROLE PING AT 03:00
+    if (totalSeconds === 180 && !pingPostedAtThree) {
+      pingPostedAtThree = true;
       await channel.send(`<@&${raidRoles[dungeon]}>`);
     }
 
-    const isRed = minutes <= 3;
-
-    if (minutes === 1) {
+    if (totalSeconds <= 0) {
       clearInterval(interval);
-      let seconds = 60;
-
-      const secInterval = setInterval(async () => {
-        seconds--;
-
-        const secEmbed = new EmbedBuilder()
-          .setColor(0xff0000)
-          .setTitle("「 SYSTEM WARNING 」")
-          .setDescription(
-            [
-              "━━━━━━━━━━━━━━━━━━",
-              "**🗡️ UPCOMING DUNGEON**",
-              `> ${dungeon}`,
-              "",
-              `⏱️ Starts in: ${seconds}s`,
-              "🔴 **RED ALERT!**",
-              "_Prepare yourselves, hunters!_",
-              "━━━━━━━━━━━━━━━━━━",
-            ].join("\n")
-          )
-          .setImage(dungeonImages[dungeon])
-          .setTimestamp();
-
-        await lastReminderMessage.edit({ embeds: [secEmbed] });
-
-        if (seconds <= 0) clearInterval(secInterval);
-      }, 1000);
-
-    } else {
-      const update = new EmbedBuilder()
-        .setColor(isRed ? 0xff0000 : 0x11162a)
-        .setTitle("「 SYSTEM WARNING 」")
-        .setDescription(
-          [
-            "━━━━━━━━━━━━━━━━━━",
-            "**🗡️ UPCOMING DUNGEON**",
-            `> ${dungeon}`,
-            "",
-            `⏱️ Starts in: ${minutes} min`,
-            isRed ? "🔴 **RED ALERT!**" : "",
-            "_Prepare yourselves, hunters!_",
-            "━━━━━━━━━━━━━━━━━━",
-          ].join("\n")
-        )
-        .setImage(dungeonImages[dungeon])
-        .setTimestamp();
-
-      await lastReminderMessage.edit({ embeds: [update] });
+      return;
     }
-  }, 60000);
+
+    const isRed = totalSeconds <= 180;
+
+    const update = new EmbedBuilder()
+      .setColor(isRed ? 0xff0000 : 0x11162a)
+      .setTitle("「 SYSTEM WARNING 」")
+      .setDescription(
+        [
+          "━━━━━━━━━━━━━━━━━━",
+          "**🗡️ UPCOMING DUNGEON**",
+          `> ${dungeon}`,
+          "",
+          `⏱️ Starts in: ${format(totalSeconds)}`,
+          isRed ? "🔴 **RED ALERT!**" : "",
+          "_Prepare yourselves, hunters!_",
+          "━━━━━━━━━━━━━━━━━━",
+        ].join("\n")
+      )
+      .setImage(dungeonImages[dungeon])
+      .setTimestamp();
+
+    await lastReminderMessage.edit({ embeds: [update] });
+  }, 1000);
 }
 
 // ================= MAIN LOOP =================
@@ -179,6 +173,7 @@ async function mainLoop() {
     await channel.send({ embeds: [embed] });
 
     currentIndex = (currentIndex + 1) % raids.length;
+    saveState(currentIndex); // 💾 SAVE PROGRESS
     lastReminderMessage = null;
   }
 
