@@ -19,13 +19,13 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-// ✅ FIRST ACTIVE = SUBWAY
-const raids = ["Subway", "Elves", "Igris", "Infernal", "Insect", "Goblin"];
+// ✅ ROTATION FIXED ONLY
+const raids = ["Subway", "Infernal", "Insect", "Igris", "Elves", "Goblin"];
 
 // ================= LOAD / SAVE STATE =================
 function loadState() {
   if (!fs.existsSync(stateFile)) {
-    return { currentIndex: 0 };
+    return { currentIndex: 1 }; // FIRST ACTIVE = INFERNAL
   }
   return JSON.parse(fs.readFileSync(stateFile, "utf8"));
 }
@@ -69,7 +69,7 @@ client.once("ready", () => {
 
 // ================= REMINDER =================
 async function postReminder(channel, dungeon) {
-  let totalSeconds = 10 * 60; // 10:00
+  let totalSeconds = 10 * 60;
   pingPostedAtThree = false;
 
   const format = (s) =>
@@ -173,7 +173,7 @@ async function mainLoop() {
     await channel.send({ embeds: [embed] });
 
     currentIndex = (currentIndex + 1) % raids.length;
-    saveState(currentIndex); // 💾 SAVE PROGRESS
+    saveState(currentIndex);
     lastReminderMessage = null;
   }
 
