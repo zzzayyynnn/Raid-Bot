@@ -53,14 +53,16 @@ function formatTime(sec) {
 }
 
 // ================= START COUNTDOWN =================
-async function startCountdown(channel, dungeon) {
+async function startCountdown(channel, dungeon, totalSeconds = 600) {
+  // Clear previous countdown
   if (countdownInterval) clearInterval(countdownInterval);
   if (countdownMessage) await countdownMessage.delete().catch(() => {});
-
-  let remaining = 600;
+  
+  let remaining = totalSeconds;
   rolePingSent = false;
 
-  const baseEmbed = new EmbedBuilder()
+  // Create initial embed
+  const embed = new EmbedBuilder()
     .setColor(0x11162a)
     .setTitle("「 SYSTEM WARNING 」")
     .setDescription(
@@ -80,29 +82,29 @@ async function startCountdown(channel, dungeon) {
     .setImage(dungeonImages[dungeon])
     .setTimestamp();
 
-  countdownMessage = await channel.send({ embeds: [baseEmbed] });
+  countdownMessage = await channel.send({ embeds: [embed] });
 
   countdownInterval = setInterval(async () => {
     remaining--;
 
-    if (remaining <= 0) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-      return;
-    }
-
-    // 🔔 Role ping at 3 minutes
+    // Role ping at 3 minutes
     if (remaining === 180 && !rolePingSent) {
       const roleId = raidRoles[dungeon];
-      if (roleId) {
-        await channel.send(`🔔 <@&${roleId}> **Dungeon spawns in 03:00!**`);
-      }
+      if (roleId) await channel.send(`🔔 <@&${roleId}> **Dungeon spawns in 03:00!**`);
       rolePingSent = true;
     }
 
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      countdownMessage = null;
+      return;
+    }
+
+    // Update only the time and color dynamically
     const danger = remaining <= 60;
 
-    const updated = new EmbedBuilder()
+    const updatedEmbed = EmbedBuilder.from(embed) // clone original embed
       .setColor(danger ? 0xff0000 : 0x11162a)
       .setTitle(danger ? "⚠️⚠️ SYSTEM ALERT ⚠️⚠️" : "「 SYSTEM WARNING 」")
       .setDescription(
@@ -113,7 +115,7 @@ async function startCountdown(channel, dungeon) {
           "",
           danger ? "⚠️ **SPAWNING IN** ⚠️" : "⏳ **Dungeon spawning in**",
           "",
-          danger ? `**\`${formatTime(remaining)}\`**` : `**${formatTime(remaining)}**`,
+          `**${formatTime(remaining)}**`,
           "",
           danger
             ? "_Stand your ground. Survival is not guaranteed._"
@@ -121,10 +123,9 @@ async function startCountdown(channel, dungeon) {
           "━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
-      .setImage(dungeonImages[dungeon])
       .setTimestamp();
 
-    await countdownMessage.edit({ embeds: [updated] }).catch(() => {});
+    await countdownMessage.edit({ embeds: [updatedEmbed] }).catch(() => {});
   }, 1000);
 }
 
@@ -135,9 +136,8 @@ async function checkTimeAndPost() {
 
   const minute = phTime.getMinutes();
   const second = phTime.getSeconds();
-  if (second !== 0) return;
 
-  const minuteKey = `${phTime.getHours()}:${minute}`;
+  const minuteKey = `${phTime.getHours()}:${minute}:${second}`;
   if (lastMinuteKey === minuteKey) return;
   lastMinuteKey = minuteKey;
 
@@ -149,7 +149,7 @@ async function checkTimeAndPost() {
 
   // ⏳ REMINDER :20 / :50
   if (minute === 20 || minute === 50) {
-    startCountdown(channel, nextDungeon);
+    startCountdown(channel, nextDungeon, 600); // 10-min countdown
   }
 
   // ⚔️ ACTIVE :00 / :30
