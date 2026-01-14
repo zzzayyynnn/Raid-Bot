@@ -19,14 +19,33 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-const raids = ["Subway", "Infernal", "Insect", "Igris", "Elves", "Goblin"];
+const raids = ["Goblin", "Subway", "Infernal", "Insect", "Igris", "Elves"]; // Goblin first
+
+// ================= IMAGES =================
+const dungeonImages = {
+  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695534078529679/image.png?ex=696882f9&is=69673179&hm=f4a597584e31f370290be100819eedd86f8da092df2a233d1fc87a7ff9c3b2c7&",
+  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png?ex=6968831c&is=6967319c&hm=3c4106bb892cd64c8936ee8247d8098d882c7b098291a6ed4a43c34c09c19d7d&",
+  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696594457563291/image.png?ex=696883f6&is=69673276&hm=6f2788c67304debf88e27c16b6929e1e2d453be2cb3a51b5d624fa7588358e0c&",
+  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png?ex=6968840b&is=6967328b&hm=4ea29e21b84651634ddd43f52ef46d530ff7500b6b332db1f05fb4d0ed1c6764&",
+  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png?ex=69688436&is=696732b6&hm=27d6aa926e32ec70c3e3c2bc1063ec0e98097e9ac1cebd2c8f2e24c7569626f3&",
+  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460697434920587489/image.png?ex=696884be&is=6967333e&hm=7e741e96c961c6855e76cca18ca51f8b185e4dd16b6b180772959157637ba828&",
+};
+
+// ================= ROLE IDS =================
+const raidRoles = {
+  Insect: "1460130634000236769",
+  Igris: "1460130485702365387",
+  Infernal: "1460130564353953872",
+  Goblin: "1460130693895159982",
+  Subway: "1460130735175499862",
+  Elves: "1460131344205218018",
+};
 
 // ================= LOAD / SAVE STATE =================
 function loadState() {
   if (!fs.existsSync(stateFile)) {
-    const igrisIndex = raids.indexOf("Igris");
     return {
-      currentIndex: igrisIndex,
+      currentIndex: 0, // start with Goblin
       firstReminderDone: false,
     };
   }
@@ -41,28 +60,6 @@ let state = loadState();
 let lastReminderMessage = null;
 let pingPostedAtThree = false;
 let lastTick = null;
-
-// ================= ROLE IDS =================
-const raidRoles = {
-  Insect: "1460130634000236769",
-  Igris: "1460130485702365387",
-  Infernal: "1460130564353953872",
-  Goblin: "1460130693895159982",
-  Subway: "1460130735175499862",
-  Elves: "1460131344205218018",
-};
-
-// ================= IMAGES =================
-const dungeonImages = {
-  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695534078529679/image.png",
-  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696594457563291/image.png",
-  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
-  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842977/image.png",
-  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460697434920587489/image.png",
-  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
-};
-
-// ================= TRACK LAST NEXT DUNGEON =================
 let lastNextDungeon = null;
 
 // ================= READY =================
@@ -92,7 +89,7 @@ async function postReminder(channel, dungeon, secondsLeft) {
         "━━━━━━━━━━━━━━━━━━",
       ].join("\n")
     )
-    .setImage(dungeonImages[dungeon])
+    .setImage(dungeonImages[dungeon]) // picture matches the upcoming dungeon
     .setTimestamp();
 
   if (!lastReminderMessage) {
@@ -185,7 +182,7 @@ async function mainLoop() {
           "━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
-      .setImage(dungeonImages[active])
+      .setImage(dungeonImages[active]) // active dungeon picture
       .setTimestamp();
 
     await channel.send({ embeds: [embed] });
@@ -200,18 +197,16 @@ async function mainLoop() {
   if (s === 0 && (m === 20 || m === 50)) {
     if (!lastReminderMessage) {
       let reminderDungeon;
-      let secondsLeft;
 
       if (!state.firstReminderDone) {
-        reminderDungeon = "Igris";
+        reminderDungeon = raids[state.currentIndex]; // first reminder matches upcoming dungeon
         state.firstReminderDone = true;
-        secondsLeft = (m === 20 ? 10 * 60 : 10 * 60); // 10 min till next dungeon
       } else {
-        reminderDungeon = lastNextDungeon;
-        // calculate remaining seconds until next dungeon spawn
-        const nextDungeonMinute = m === 20 ? 30 : 0;
-        secondsLeft = ((nextDungeonMinute - m + (nextDungeonMinute <= m ? 60 : 0)) * 60) - s;
+        reminderDungeon = lastNextDungeon; // subsequent reminders
       }
+
+      const nextDungeonMinute = m === 20 ? 30 : 0;
+      const secondsLeft = ((nextDungeonMinute - m + (nextDungeonMinute <= m ? 60 : 0)) * 60) - s;
 
       await postReminder(channel, reminderDungeon, secondsLeft);
       saveState();
