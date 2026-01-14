@@ -24,17 +24,23 @@ const raids = ["Subway", "Infernal", "Insect", "Igris", "Elves", "Goblin"];
 // ================= LOAD / SAVE STATE =================
 function loadState() {
   if (!fs.existsSync(stateFile)) {
-    // currentIndex = 2 → first active = Insect
-    return { currentIndex: 2, firstReminderDone: false };
+    const igrisIndex = raids.indexOf("Igris");
+    return {
+      currentIndex: igrisIndex, // first active dungeon = Igris
+      firstReminderDone: false
+    };
   }
   return JSON.parse(fs.readFileSync(stateFile, "utf8"));
 }
 
 function saveState() {
-  fs.writeFileSync(stateFile, JSON.stringify({ currentIndex, firstReminderDone }));
+  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
 }
 
-let { currentIndex, firstReminderDone = false } = loadState();
+let state = loadState();
+let lastReminderMessage = null;
+let pingPostedAtThree = false;
+let lastTick = null;
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -56,14 +62,13 @@ const dungeonImages = {
   Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
 };
 
-let lastReminderMessage = null;
-let pingPostedAtThree = false;
-let lastTick = null;
+// ================= TRACK LAST NEXT DUNGEON =================
+let lastNextDungeon = null; // store the "Next Dungeon" from last active post
 
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`Resuming at dungeon: ${raids[currentIndex]}`);
+  console.log(`Resuming at dungeon: ${raids[state.currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
@@ -148,8 +153,9 @@ async function mainLoop() {
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  const active = raids[currentIndex];
-  const next = raids[(currentIndex + 1) % raids.length];
+  const active = raids[state.currentIndex];
+  const next = raids[(state.currentIndex + 1) % raids.length];
+  lastNextDungeon = next; // store it for reminder use
 
   // ================= ACTIVE DUNGEON POST (:00 or :30) =================
   if (s === 0 && (m === 0 || m === 30)) {
@@ -164,6 +170,8 @@ async function mainLoop() {
           "",
           "**➡️ NEXT DUNGEON**",
           `> ${next}`,
+          "----------------------",
+          "Your dungeon has spawned. Hunters, be ready.",
           "━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
@@ -173,9 +181,9 @@ async function mainLoop() {
     await channel.send({ embeds: [embed] });
 
     // Move rotation forward AFTER posting
-    currentIndex = (currentIndex + 1) % raids.length;
-    saveState();
+    state.currentIndex = (state.currentIndex + 1) % raids.length;
     lastReminderMessage = null;
+    saveState();
   }
 
   // ================= REMINDER POST (:20 or :50) =================
@@ -183,13 +191,13 @@ async function mainLoop() {
     if (!lastReminderMessage) {
       let reminderDungeon;
 
-      if (!firstReminderDone) {
+      if (!state.firstReminderDone) {
         // FIRST REMINDER SPECIAL CASE: points to Igris
         reminderDungeon = "Igris";
-        firstReminderDone = true;
+        state.firstReminderDone = true;
       } else {
-        // Reminder should always point to the upcoming active dungeon
-        reminderDungeon = raids[currentIndex % raids.length];
+        // Reminder always points to the “next dungeon” from last active post
+        reminderDungeon = lastNextDungeon;
       }
 
       await postReminder(channel, reminderDungeon);
