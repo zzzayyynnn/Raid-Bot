@@ -17,7 +17,7 @@ const client = new Client({
 
 // ================= RAID ROTATION =================
 const raids = ["Insect", "Igris", "Elves", "Goblin", "Subway", "Infernal"];
-let currentIndex = raids.indexOf("Igris"); // First active dungeon = Igris
+let currentIndex = raids.indexOf("Elves"); // First active dungeon = Elves
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -80,7 +80,10 @@ async function postCountdownReminder(channel, nextPortal) {
 function buildCountdownEmbed(dungeon, totalSeconds, alertText = "") {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
+
   const color = totalSeconds <= 3 * 60 ? 0xff0000 : 0x11162a;
+  const formattedSeconds = String(seconds).padStart(2, "0"); // ensures 2 digits
+  const formattedMinutes = String(minutes).padStart(2, "0");
 
   return new EmbedBuilder()
     .setColor(color)
@@ -91,7 +94,7 @@ function buildCountdownEmbed(dungeon, totalSeconds, alertText = "") {
         "**🗡️ UPCOMING DUNGEON**",
         `> ${dungeon}`,
         "",
-        `⏱️ Starts in: ${minutes}m ${seconds}s`,
+        `⏱️ Starts in: ${formattedMinutes}:${formattedSeconds}`,
         alertText,
         "_Prepare yourselves, hunters!_",
         "━━━━━━━━━━━━━━━━━━",
