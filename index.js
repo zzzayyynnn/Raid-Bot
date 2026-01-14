@@ -19,22 +19,22 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-// ✅ ROTATION FIXED ONLY
 const raids = ["Subway", "Infernal", "Insect", "Igris", "Elves", "Goblin"];
 
 // ================= LOAD / SAVE STATE =================
 function loadState() {
   if (!fs.existsSync(stateFile)) {
-    return { currentIndex: 1 }; // FIRST ACTIVE = INFERNAL
+    // currentIndex = 2 → first active = Insect
+    return { currentIndex: 2, firstReminderDone: false };
   }
   return JSON.parse(fs.readFileSync(stateFile, "utf8"));
 }
 
-function saveState(index) {
-  fs.writeFileSync(stateFile, JSON.stringify({ currentIndex: index }));
+function saveState() {
+  fs.writeFileSync(stateFile, JSON.stringify({ currentIndex, firstReminderDone }));
 }
 
-let { currentIndex } = loadState();
+let { currentIndex, firstReminderDone = false } = loadState();
 
 // ================= ROLE IDS =================
 const raidRoles = {
@@ -151,7 +151,7 @@ async function mainLoop() {
   const active = raids[currentIndex];
   const next = raids[(currentIndex + 1) % raids.length];
 
-  // ACTIVE DUNGEON
+  // ================= ACTIVE DUNGEON POST (:00 or :30) =================
   if (s === 0 && (m === 0 || m === 30)) {
     const embed = new EmbedBuilder()
       .setColor(0x05070f)
@@ -172,15 +172,28 @@ async function mainLoop() {
 
     await channel.send({ embeds: [embed] });
 
+    // Move rotation forward AFTER posting
     currentIndex = (currentIndex + 1) % raids.length;
-    saveState(currentIndex);
+    saveState();
     lastReminderMessage = null;
   }
 
-  // REMINDER
+  // ================= REMINDER POST (:20 or :50) =================
   if (s === 0 && (m === 20 || m === 50)) {
     if (!lastReminderMessage) {
-      await postReminder(channel, next);
+      let reminderDungeon;
+
+      if (!firstReminderDone) {
+        // FIRST REMINDER SPECIAL CASE: points to Igris
+        reminderDungeon = "Igris";
+        firstReminderDone = true;
+      } else {
+        // Reminder should always point to the upcoming active dungeon
+        reminderDungeon = raids[currentIndex % raids.length];
+      }
+
+      await postReminder(channel, reminderDungeon);
+      saveState();
     }
   }
 }
