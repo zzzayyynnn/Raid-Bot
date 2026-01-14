@@ -26,8 +26,8 @@ function loadState() {
   if (!fs.existsSync(stateFile)) {
     const igrisIndex = raids.indexOf("Igris");
     return {
-      currentIndex: igrisIndex, // first active dungeon = Igris
-      firstReminderDone: false
+      currentIndex: igrisIndex,
+      firstReminderDone: false,
     };
   }
   return JSON.parse(fs.readFileSync(stateFile, "utf8"));
@@ -63,7 +63,7 @@ const dungeonImages = {
 };
 
 // ================= TRACK LAST NEXT DUNGEON =================
-let lastNextDungeon = null; // store the "Next Dungeon" from last active post
+let lastNextDungeon = null;
 
 // ================= READY =================
 client.once("ready", () => {
@@ -72,13 +72,11 @@ client.once("ready", () => {
   setInterval(mainLoop, 1000);
 });
 
-// ================= REMINDER =================
-async function postReminder(channel, dungeon) {
-  let totalSeconds = 10 * 60;
+// ================= REMINDER FUNCTION =================
+async function postReminder(channel, dungeon, secondsLeft) {
   pingPostedAtThree = false;
 
-  const format = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const format = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const embed = new EmbedBuilder()
     .setColor(0x11162a)
@@ -89,7 +87,7 @@ async function postReminder(channel, dungeon) {
         "**🗡️ UPCOMING DUNGEON**",
         `> ${dungeon}`,
         "",
-        `⏱️ Starts in: ${format(totalSeconds)}`,
+        `⏱️ Starts in: ${format(secondsLeft)}`,
         "_Prepare yourselves, hunters!_",
         "━━━━━━━━━━━━━━━━━━",
       ].join("\n")
@@ -97,23 +95,27 @@ async function postReminder(channel, dungeon) {
     .setImage(dungeonImages[dungeon])
     .setTimestamp();
 
-  lastReminderMessage = await channel.send({ embeds: [embed] });
+  if (!lastReminderMessage) {
+    lastReminderMessage = await channel.send({ embeds: [embed] });
+  } else {
+    await lastReminderMessage.edit({ embeds: [embed] });
+  }
 
   const interval = setInterval(async () => {
-    totalSeconds--;
+    secondsLeft--;
 
-    // 🔔 ROLE PING AT 03:00
-    if (totalSeconds === 180 && !pingPostedAtThree) {
-      pingPostedAtThree = true;
-      await channel.send(`<@&${raidRoles[dungeon]}>`);
-    }
-
-    if (totalSeconds <= 0) {
+    if (secondsLeft <= 0) {
       clearInterval(interval);
       return;
     }
 
-    const isRed = totalSeconds <= 180;
+    // 3-minute ping
+    if (secondsLeft <= 180 && !pingPostedAtThree) {
+      pingPostedAtThree = true;
+      await channel.send(`<@&${raidRoles[dungeon]}>`);
+    }
+
+    const isRed = secondsLeft <= 180;
 
     const update = new EmbedBuilder()
       .setColor(isRed ? 0xff0000 : 0x11162a)
@@ -124,7 +126,7 @@ async function postReminder(channel, dungeon) {
           "**🗡️ UPCOMING DUNGEON**",
           `> ${dungeon}`,
           "",
-          `⏱️ Starts in: ${format(totalSeconds)}`,
+          `⏱️ Starts in: ${format(secondsLeft)}`,
           isRed ? "🔴 **RED ALERT!**" : "",
           "_Prepare yourselves, hunters!_",
           "━━━━━━━━━━━━━━━━━━",
@@ -133,14 +135,22 @@ async function postReminder(channel, dungeon) {
       .setImage(dungeonImages[dungeon])
       .setTimestamp();
 
-    await lastReminderMessage.edit({ embeds: [update] });
+    try {
+      if (lastReminderMessage.editable) {
+        await lastReminderMessage.edit({ embeds: [update] });
+      } else {
+        lastReminderMessage = await channel.send({ embeds: [update] });
+      }
+    } catch (err) {
+      console.error("Failed to update reminder:", err);
+    }
   }, 1000);
 }
 
 // ================= MAIN LOOP =================
 async function mainLoop() {
   const now = new Date();
-  const ph = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const ph = new Date(now.getTime() + 8 * 60 * 60 * 1000); // PH time
 
   const h = ph.getHours();
   const m = ph.getMinutes();
@@ -155,7 +165,7 @@ async function mainLoop() {
 
   const active = raids[state.currentIndex];
   const next = raids[(state.currentIndex + 1) % raids.length];
-  lastNextDungeon = next; // store it for reminder use
+  lastNextDungeon = next;
 
   // ================= ACTIVE DUNGEON POST (:00 or :30) =================
   if (s === 0 && (m === 0 || m === 30)) {
@@ -180,7 +190,7 @@ async function mainLoop() {
 
     await channel.send({ embeds: [embed] });
 
-    // Move rotation forward AFTER posting
+    // Advance rotation
     state.currentIndex = (state.currentIndex + 1) % raids.length;
     lastReminderMessage = null;
     saveState();
@@ -190,17 +200,20 @@ async function mainLoop() {
   if (s === 0 && (m === 20 || m === 50)) {
     if (!lastReminderMessage) {
       let reminderDungeon;
+      let secondsLeft;
 
       if (!state.firstReminderDone) {
-        // FIRST REMINDER SPECIAL CASE: points to Igris
         reminderDungeon = "Igris";
         state.firstReminderDone = true;
+        secondsLeft = (m === 20 ? 10 * 60 : 10 * 60); // 10 min till next dungeon
       } else {
-        // Reminder always points to the “next dungeon” from last active post
         reminderDungeon = lastNextDungeon;
+        // calculate remaining seconds until next dungeon spawn
+        const nextDungeonMinute = m === 20 ? 30 : 0;
+        secondsLeft = ((nextDungeonMinute - m + (nextDungeonMinute <= m ? 60 : 0)) * 60) - s;
       }
 
-      await postReminder(channel, reminderDungeon);
+      await postReminder(channel, reminderDungeon, secondsLeft);
       saveState();
     }
   }
