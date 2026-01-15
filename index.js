@@ -16,9 +16,12 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-// 👉 Igris ang unang ACTIVE sa :00
 const raids = ["Igris", "Elves", "Goblin", "Subway", "Infernal", "Insect"];
-let currentIndex = 0; // Igris
+
+// 🔥 START SETUP
+// 👉 Unang ACTIVE sa :30 = ELVES
+let currentIndex = raids.indexOf("Elves");
+let lastActiveIndex = currentIndex;
 
 // ================= IMAGES =================
 const dungeonImages = {
@@ -47,7 +50,7 @@ let lastTick = null;
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`Starting ACTIVE dungeon: ${raids[currentIndex]}`);
+  console.log(`First ACTIVE dungeon at :30 => ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
@@ -110,22 +113,23 @@ async function mainLoop() {
   const now = new Date();
   const ph = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
-  const h = ph.getHours();
   const m = ph.getMinutes();
   const s = ph.getSeconds();
 
-  const tick = `${h}:${m}:${s}`;
+  const tick = `${m}:${s}`;
   if (tick === lastTick) return;
   lastTick = tick;
 
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  const active = raids[currentIndex];
-  const upcoming = raids[(currentIndex + 1) % raids.length];
-
   // ===== ACTIVE POST (:00 / :30) =====
   if (s === 0 && (m === 0 || m === 30)) {
+    lastActiveIndex = currentIndex;
+
+    const active = raids[lastActiveIndex];
+    const upcoming = raids[(lastActiveIndex + 1) % raids.length];
+
     const embed = new EmbedBuilder()
       .setColor(0x05070f)
       .setTitle("「 SYSTEM — DUNGEON STATUS 」")
@@ -154,6 +158,8 @@ async function mainLoop() {
   // ===== UPCOMING REMINDER (:20 / :50) =====
   if (s === 0 && (m === 20 || m === 50)) {
     if (!lastReminderMessage) {
+      const upcoming = raids[(lastActiveIndex + 1) % raids.length];
+
       const targetMinute = m === 20 ? 30 : 0;
       const secondsLeft =
         ((targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60);
