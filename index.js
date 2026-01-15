@@ -1,7 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
 
 // ================= CONFIG =================
 const token = process.env.TOKEN;
@@ -11,7 +9,6 @@ if (!token) {
 }
 
 const raidChannelId = "1459967642621448316";
-const stateFile = path.join(__dirname, "state.json");
 
 // ================= CLIENT =================
 const client = new Client({
@@ -19,7 +16,9 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-const raids = ["Goblin", "Subway", "Infernal", "Insect", "Igris", "Elves"];
+// 👉 Igris ang unang ACTIVE sa :00
+const raids = ["Igris", "Elves", "Goblin", "Subway", "Infernal", "Insect"];
+let currentIndex = 0; // Igris
 
 // ================= IMAGES =================
 const dungeonImages = {
@@ -41,21 +40,6 @@ const raidRoles = {
   Elves: "1460131344205218018",
 };
 
-// ================= STATE =================
-function loadState() {
-  if (!fs.existsSync(stateFile)) {
-    return {
-      currentIndex: 1, // 🔥 START WITH SUBWAY
-    };
-  }
-  return JSON.parse(fs.readFileSync(stateFile, "utf8"));
-}
-
-function saveState() {
-  fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-}
-
-let state = loadState();
 let lastReminderMessage = null;
 let pingPostedAtThree = false;
 let lastTick = null;
@@ -63,7 +47,7 @@ let lastTick = null;
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`Starting ACTIVE dungeon: ${raids[state.currentIndex]}`);
+  console.log(`Starting ACTIVE dungeon: ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
@@ -137,8 +121,8 @@ async function mainLoop() {
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  const active = raids[state.currentIndex];
-  const upcoming = raids[(state.currentIndex + 1) % raids.length];
+  const active = raids[currentIndex];
+  const upcoming = raids[(currentIndex + 1) % raids.length];
 
   // ===== ACTIVE POST (:00 / :30) =====
   if (s === 0 && (m === 0 || m === 30)) {
@@ -163,9 +147,8 @@ async function mainLoop() {
 
     await channel.send({ embeds: [embed] });
 
-    state.currentIndex = (state.currentIndex + 1) % raids.length;
+    currentIndex = (currentIndex + 1) % raids.length;
     lastReminderMessage = null;
-    saveState();
   }
 
   // ===== UPCOMING REMINDER (:20 / :50) =====
@@ -173,7 +156,7 @@ async function mainLoop() {
     if (!lastReminderMessage) {
       const targetMinute = m === 20 ? 30 : 0;
       const secondsLeft =
-        ((targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60) - s;
+        ((targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60);
 
       await postReminder(channel, upcoming, secondsLeft);
     }
