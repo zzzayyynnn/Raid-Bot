@@ -16,21 +16,40 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-const raids = ["Igris", "Elves", "Goblin", "Subway", "Infernal", "Insect"];
+// Subway → Infernal → Insect → Igris → Demon Castle → Elves → Goblin
+const raids = [
+  "Subway",
+  "Infernal",
+  "Insect",
+  "Igris",
+  "Demon Castle",
+  "Elves",
+  "Goblin",
+];
 
 // 🔥 START SETUP
-// 👉 Unang ACTIVE sa :30 = ELVES
-let currentIndex = raids.indexOf("Elves");
+// 👉 First ACTIVE at :00 = Goblin
+let currentIndex = raids.indexOf("Goblin");
 let lastActiveIndex = currentIndex;
 
 // ================= IMAGES =================
 const dungeonImages = {
-  Goblin: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695534078529679/image.png",
-  Subway: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696594457563291/image.png",
-  Infernal: "https://cdn.discordapp.com/attachments/1460638599082021107/1460697434920587489/image.png",
-  Insect: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
-  Igris: "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
-  Elves: "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
+  Goblin:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460695534078529679/image.png",
+  Subway:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460696594457563291/image.png",
+  Infernal:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460697434920587489/image.png",
+  Insect:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
+  Igris:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
+  Elves:
+    "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
+
+  // 🆕 NEW RAID
+  "Demon Castle":
+    "https://cdn.discordapp.com/attachments/1410965755742130247/1463577590039183431/image.png",
 };
 
 // ================= ROLE IDS =================
@@ -41,6 +60,9 @@ const raidRoles = {
   Insect: "1460130634000236769",
   Igris: "1460130485702365387",
   Elves: "1460131344205218018",
+
+  // 🆕 NEW RAID ROLE
+  "Demon Castle": "1463579366566138042",
 };
 
 let lastReminderMessage = null;
@@ -50,7 +72,7 @@ let lastTick = null;
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`First ACTIVE dungeon at :30 => ${raids[currentIndex]}`);
+  console.log(`First ACTIVE dungeon => ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
@@ -59,7 +81,9 @@ async function postReminder(channel, dungeon, secondsLeft) {
   pingPostedAtThree = false;
 
   const format = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(
+      s % 60
+    ).padStart(2, "0")}`;
 
   const sendOrEdit = async () => {
     const isRed = secondsLeft <= 180;
@@ -99,9 +123,12 @@ async function postReminder(channel, dungeon, secondsLeft) {
       return;
     }
 
+    // 🔔 3-minute ping (SAFE)
     if (secondsLeft === 180 && !pingPostedAtThree) {
       pingPostedAtThree = true;
-      await channel.send(`<@&${raidRoles[dungeon]}>`);
+      if (raidRoles[dungeon]) {
+        await channel.send(`<@&${raidRoles[dungeon]}>`);
+      }
     }
 
     await sendOrEdit();
@@ -162,7 +189,7 @@ async function mainLoop() {
 
       const targetMinute = m === 20 ? 30 : 0;
       const secondsLeft =
-        ((targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60);
+        (targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60;
 
       await postReminder(channel, upcoming, secondsLeft);
     }
