@@ -28,8 +28,8 @@ const raids = [
 ];
 
 // 🔥 START SETUP
-// 👉 First ACTIVE at :00 = Goblin
-let currentIndex = raids.indexOf("Goblin");
+// 👉 First ACTIVE at :00 / :30 = Demon Castle
+let currentIndex = raids.indexOf("Demon Castle");
 let lastActiveIndex = currentIndex;
 
 // ================= IMAGES =================
@@ -46,8 +46,6 @@ const dungeonImages = {
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
   Elves:
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
-
-  // 🆕 NEW RAID
   "Demon Castle":
     "https://cdn.discordapp.com/attachments/1410965755742130247/1463577590039183431/image.png",
 };
@@ -60,36 +58,36 @@ const raidRoles = {
   Insect: "1460130634000236769",
   Igris: "1460130485702365387",
   Elves: "1460131344205218018",
-
-  // 🆕 NEW RAID ROLE
   "Demon Castle": "1463579366566138042",
 };
 
-let lastReminderMessage = null;
-let pingPostedAtThree = false;
-let lastTick = null;
+// ================= STATE =================
+let reminderMessage = null;
+let pingSent = false;
+let lastTick = "";
 
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`First ACTIVE dungeon => ${raids[currentIndex]}`);
+  console.log(`First ACTIVE => ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
 // ================= REMINDER =================
 async function postReminder(channel, dungeon, secondsLeft) {
-  pingPostedAtThree = false;
+  pingSent = false;
 
   const format = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(
-      s % 60
-    ).padStart(2, "0")}`;
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(
+      2,
+      "0"
+    )}`;
 
-  const sendOrEdit = async () => {
-    const isRed = secondsLeft <= 180;
+  const updateEmbed = async () => {
+    const red = secondsLeft <= 180;
 
     const embed = new EmbedBuilder()
-      .setColor(isRed ? 0xff0000 : 0x11162a)
+      .setColor(red ? 0xff0000 : 0x11162a)
       .setTitle("「 SYSTEM WARNING 」")
       .setDescription(
         [
@@ -98,40 +96,37 @@ async function postReminder(channel, dungeon, secondsLeft) {
           `> ${dungeon}`,
           "",
           `⏱️ Starts in: ${format(secondsLeft)}`,
-          isRed ? "🔴 **RED ALERT!**" : "",
-          "_Prepare yourselves, hunters!_",
+          red ? "🔴 **RED ALERT!**" : "",
           "━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
       .setImage(dungeonImages[dungeon])
       .setTimestamp();
 
-    if (!lastReminderMessage) {
-      lastReminderMessage = await channel.send({ embeds: [embed] });
+    if (!reminderMessage) {
+      reminderMessage = await channel.send({ embeds: [embed] });
     } else {
-      await lastReminderMessage.edit({ embeds: [embed] });
+      await reminderMessage.edit({ embeds: [embed] });
     }
   };
 
-  await sendOrEdit();
+  await updateEmbed();
 
-  const interval = setInterval(async () => {
+  const timer = setInterval(async () => {
     secondsLeft--;
 
     if (secondsLeft <= 0) {
-      clearInterval(interval);
+      clearInterval(timer);
       return;
     }
 
-    // 🔔 3-minute ping (SAFE)
-    if (secondsLeft === 180 && !pingPostedAtThree) {
-      pingPostedAtThree = true;
-      if (raidRoles[dungeon]) {
-        await channel.send(`<@&${raidRoles[dungeon]}>`);
-      }
+    // 🔔 3-minute ping (ONCE ONLY)
+    if (secondsLeft === 180 && !pingSent && raidRoles[dungeon]) {
+      pingSent = true;
+      await channel.send(`<@&${raidRoles[dungeon]}>`);
     }
 
-    await sendOrEdit();
+    await updateEmbed();
   }, 1000);
 }
 
@@ -168,8 +163,6 @@ async function mainLoop() {
           "",
           "**➡️ NEXT DUNGEON**",
           `> ${upcoming}`,
-          "----------------------",
-          "Your dungeon has spawned. Hunters, be ready.",
           "━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
@@ -179,15 +172,15 @@ async function mainLoop() {
     await channel.send({ embeds: [embed] });
 
     currentIndex = (currentIndex + 1) % raids.length;
-    lastReminderMessage = null;
+    reminderMessage = null;
   }
 
   // ===== UPCOMING REMINDER (:20 / :50) =====
   if (s === 0 && (m === 20 || m === 50)) {
-    if (!lastReminderMessage) {
+    if (!reminderMessage) {
       const upcoming = raids[(lastActiveIndex + 1) % raids.length];
-
       const targetMinute = m === 20 ? 30 : 0;
+
       const secondsLeft =
         (targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60;
 
