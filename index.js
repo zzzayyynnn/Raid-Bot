@@ -16,20 +16,20 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-// Subway → Infernal → Insect → Igris → Demon Castle → Elves → Goblin
+// Infernal → Insect → Igris → Demon → Baruka(Elves) → Goblin → Subway
 const raids = [
-  "Subway",
   "Infernal",
   "Insect",
   "Igris",
   "Demon Castle",
-  "Elves",
+  "Elves", // BARUKA
   "Goblin",
+  "Subway",
 ];
 
 // 🔥 START SETUP
-// 👉 First ACTIVE at :00 / :30 = Demon Castle
-let currentIndex = raids.indexOf("Demon Castle");
+// 👉 First ACTIVE at :00 / :30 = BARUKA (ELVES)
+let currentIndex = raids.indexOf("Elves");
 let lastActiveIndex = currentIndex;
 
 // ================= IMAGES =================
@@ -44,7 +44,7 @@ const dungeonImages = {
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
   Igris:
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
-  Elves:
+  Elves: // BARUKA
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
   "Demon Castle":
     "https://cdn.discordapp.com/attachments/1410965755742130247/1463577590039183431/image.png",
@@ -57,7 +57,7 @@ const raidRoles = {
   Infernal: "1460130564353953872",
   Insect: "1460130634000236769",
   Igris: "1460130485702365387",
-  Elves: "1460131344205218018",
+  Elves: "1460131344205218018", // BARUKA
   "Demon Castle": "1463579366566138042",
 };
 
