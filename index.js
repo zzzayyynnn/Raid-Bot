@@ -16,20 +16,20 @@ const client = new Client({
 });
 
 // ================= RAID ROTATION =================
-// Infernal → Insect → Igris → Demon → Baruka(Elves) → Goblin → Subway
+// Subway → Infernal → Insect → Igris → Demon Castle → Elves → Goblin
 const raids = [
+  "Subway",
   "Infernal",
   "Insect",
   "Igris",
   "Demon Castle",
-  "Elves", // BARUKA
+  "Elves",
   "Goblin",
-  "Subway",
 ];
 
 // 🔥 START SETUP
-// 👉 First ACTIVE at :00 / :30 = BARUKA (ELVES)
-let currentIndex = raids.indexOf("Elves");
+// 👉 FIRST ACTIVE = DEMON CASTLE
+let currentIndex = raids.indexOf("Demon Castle");
 let lastActiveIndex = currentIndex;
 
 // ================= IMAGES =================
@@ -44,7 +44,7 @@ const dungeonImages = {
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460696683498176737/image.png",
   Igris:
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460696861399842979/image.png",
-  Elves: // BARUKA
+  Elves:
     "https://cdn.discordapp.com/attachments/1460638599082021107/1460695678941663377/image.png",
   "Demon Castle":
     "https://cdn.discordapp.com/attachments/1410965755742130247/1463577590039183431/image.png",
@@ -57,14 +57,15 @@ const raidRoles = {
   Infernal: "1460130564353953872",
   Insect: "1460130634000236769",
   Igris: "1460130485702365387",
-  Elves: "1460131344205218018", // BARUKA
+  Elves: "1460131344205218018",
   "Demon Castle": "1463579366566138042",
 };
 
 // ================= STATE =================
 let reminderMessage = null;
 let pingSent = false;
-let lastTick = "";
+let lastActiveSlot = null;
+let lastReminderSlot = null;
 
 // ================= READY =================
 client.once("ready", () => {
@@ -114,13 +115,11 @@ async function postReminder(channel, dungeon, secondsLeft) {
 
   const timer = setInterval(async () => {
     secondsLeft--;
-
     if (secondsLeft <= 0) {
       clearInterval(timer);
       return;
     }
 
-    // 🔔 3-minute ping (ONCE ONLY)
     if (secondsLeft === 180 && !pingSent && raidRoles[dungeon]) {
       pingSent = true;
       await channel.send(`<@&${raidRoles[dungeon]}>`);
@@ -133,59 +132,71 @@ async function postReminder(channel, dungeon, secondsLeft) {
 // ================= MAIN LOOP =================
 async function mainLoop() {
   const now = new Date();
-  const ph = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
+  // ✅ USE UTC + PH OFFSET ONCE (NO DRIFT)
+  const ph = new Date(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours() + 8,
+    now.getUTCMinutes(),
+    now.getUTCSeconds()
+  );
 
   const m = ph.getMinutes();
   const s = ph.getSeconds();
 
-  const tick = `${m}:${s}`;
-  if (tick === lastTick) return;
-  lastTick = tick;
-
+  const slot = `${m}-${s}`;
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  // ===== ACTIVE POST (:00 / :30) =====
+  // ===== ACTIVE (:00 / :30 EXACT) =====
   if (s === 0 && (m === 0 || m === 30)) {
+    if (lastActiveSlot === slot) return;
+    lastActiveSlot = slot;
+
     lastActiveIndex = currentIndex;
-
     const active = raids[lastActiveIndex];
-    const upcoming = raids[(lastActiveIndex + 1) % raids.length];
+    const next = raids[(lastActiveIndex + 1) % raids.length];
 
-    const embed = new EmbedBuilder()
-      .setColor(0x05070f)
-      .setTitle("「 SYSTEM — DUNGEON STATUS 」")
-      .setDescription(
-        [
-          "━━━━━━━━━━━━━━━━━━",
-          "**⚔️ ACTIVE DUNGEON**",
-          `> ${active}`,
-          "",
-          "**➡️ NEXT DUNGEON**",
-          `> ${upcoming}`,
-          "━━━━━━━━━━━━━━━━━━",
-        ].join("\n")
-      )
-      .setImage(dungeonImages[active])
-      .setTimestamp();
-
-    await channel.send({ embeds: [embed] });
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0x05070f)
+          .setTitle("「 SYSTEM — DUNGEON STATUS 」")
+          .setDescription(
+            [
+              "━━━━━━━━━━━━━━━━━━",
+              "**⚔️ ACTIVE DUNGEON**",
+              `> ${active}`,
+              "",
+              "**➡️ NEXT DUNGEON**",
+              `> ${next}`,
+              "━━━━━━━━━━━━━━━━━━",
+            ].join("\n")
+          )
+          .setImage(dungeonImages[active])
+          .setTimestamp(),
+      ],
+    });
 
     currentIndex = (currentIndex + 1) % raids.length;
     reminderMessage = null;
+    pingSent = false;
   }
 
-  // ===== UPCOMING REMINDER (:20 / :50) =====
+  // ===== REMINDER (:20 / :50 EXACT) =====
   if (s === 0 && (m === 20 || m === 50)) {
-    if (!reminderMessage) {
-      const upcoming = raids[(lastActiveIndex + 1) % raids.length];
-      const targetMinute = m === 20 ? 30 : 0;
+    if (lastReminderSlot === slot) return;
+    lastReminderSlot = slot;
 
-      const secondsLeft =
-        (targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60;
+    const upcoming = raids[(lastActiveIndex + 1) % raids.length];
+    const targetMinute = m === 20 ? 30 : 0;
 
-      await postReminder(channel, upcoming, secondsLeft);
-    }
+    const secondsLeft =
+      (targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60;
+
+    await postReminder(channel, upcoming, secondsLeft);
   }
 }
 
