@@ -15,22 +15,60 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-// ================= RAID ROTATION =================
-// Subway → Infernal → Insect → Igris → Demon Castle → Elves → Goblin
-const raids = [
-  "Subway",
-  "Infernal",
-  "Insect",
-  "Igris",
-  "Demon Castle",
-  "Elves",
-  "Goblin",
-];
+// ================= FIXED 24H DUNGEON SCHEDULE (PH TIME) =================
+const dungeonSchedule = {
+  "00:00": "Igris",
+  "00:30": "Demon Castle",
+  "01:00": "Elves",
+  "01:30": "Goblin",
+  "02:00": "Subway",
+  "02:30": "Infernal",
+  "03:00": "Insect",
+  "03:30": "Igris",
+  "04:00": "Demon Castle",
+  "04:30": "Elves",
+  "05:00": "Goblin",
+  "05:30": "Subway",
+  "06:00": "Infernal",
+  "06:30": "Insect",
+  "07:00": "Igris",
+  "07:30": "Demon Castle",
 
-// 🔥 START SETUP
-// 👉 FIRST ACTIVE = DEMON CASTLE
-let currentIndex = raids.indexOf("Demon Castle");
-let lastActiveIndex = currentIndex;
+  // 🔥 8:00 AM SKIP (Elves skipped → Goblin)
+  "08:00": "Goblin",
+  "08:30": "Subway",
+  "09:00": "Infernal",
+  "09:30": "Insect",
+  "10:00": "Igris",
+  "10:30": "Demon Castle",
+  "11:00": "Elves",
+  "11:30": "Goblin",
+
+  "12:00": "Subway",
+  "12:30": "Infernal",
+  "13:00": "Insect",
+  "13:30": "Igris",
+  "14:00": "Demon Castle",
+  "14:30": "Elves",
+  "15:00": "Goblin",
+  "15:30": "Subway",
+  "16:00": "Infernal",
+  "16:30": "Insect",
+  "17:00": "Igris",
+  "17:30": "Demon Castle",
+  "18:00": "Elves",
+  "18:30": "Goblin",
+  "19:00": "Subway",
+  "19:30": "Infernal",
+  "20:00": "Insect",
+  "20:30": "Igris",
+  "21:00": "Demon Castle",
+  "21:30": "Elves",
+  "22:00": "Goblin",
+  "22:30": "Subway",
+  "23:00": "Infernal",
+  "23:30": "Insect",
+};
 
 // ================= IMAGES =================
 const dungeonImages = {
@@ -67,10 +105,35 @@ let pingSent = false;
 let lastActiveSlot = null;
 let lastReminderSlot = null;
 
+// ================= TIME HELPERS =================
+function getPHTime() {
+  const now = new Date();
+  return new Date(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    now.getUTCHours() + 8,
+    now.getUTCMinutes(),
+    now.getUTCSeconds()
+  );
+}
+
+function formatHM(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes()
+  ).padStart(2, "0")}`;
+}
+
+function getNextSlot(time) {
+  const [h, m] = time.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m + 30, 0, 0);
+  return formatHM(d);
+}
+
 // ================= READY =================
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  console.log(`First ACTIVE => ${raids[currentIndex]}`);
   setInterval(mainLoop, 1000);
 });
 
@@ -79,10 +142,9 @@ async function postReminder(channel, dungeon, secondsLeft) {
   pingSent = false;
 
   const format = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(
-      2,
-      "0"
-    )}`;
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(
+      Math.floor(s % 60)
+    ).padStart(2, "0")}`;
 
   const updateEmbed = async () => {
     const red = secondsLeft <= 180;
@@ -131,33 +193,24 @@ async function postReminder(channel, dungeon, secondsLeft) {
 
 // ================= MAIN LOOP =================
 async function mainLoop() {
-  const now = new Date();
-
-  // ✅ USE UTC + PH OFFSET ONCE (NO DRIFT)
-  const ph = new Date(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    now.getUTCHours() + 8,
-    now.getUTCMinutes(),
-    now.getUTCSeconds()
-  );
-
+  const ph = getPHTime();
   const m = ph.getMinutes();
   const s = ph.getSeconds();
-
   const slot = `${m}-${s}`;
+
   const channel = await client.channels.fetch(raidChannelId).catch(() => null);
   if (!channel) return;
 
-  // ===== ACTIVE (:00 / :30 EXACT) =====
+  // ===== ACTIVE (:00 / :30) =====
   if (s === 0 && (m === 0 || m === 30)) {
     if (lastActiveSlot === slot) return;
     lastActiveSlot = slot;
 
-    lastActiveIndex = currentIndex;
-    const active = raids[lastActiveIndex];
-    const next = raids[(lastActiveIndex + 1) % raids.length];
+    const timeKey = formatHM(ph);
+    const active = dungeonSchedule[timeKey];
+    if (!active) return;
+
+    const next = dungeonSchedule[getNextSlot(timeKey)];
 
     await channel.send({
       embeds: [
@@ -180,22 +233,23 @@ async function mainLoop() {
       ],
     });
 
-    currentIndex = (currentIndex + 1) % raids.length;
     reminderMessage = null;
     pingSent = false;
   }
 
-  // ===== REMINDER (:20 / :50 EXACT) =====
+  // ===== REMINDER (:20 / :50) =====
   if (s === 0 && (m === 20 || m === 50)) {
     if (lastReminderSlot === slot) return;
     lastReminderSlot = slot;
 
-    const upcoming = raids[(lastActiveIndex + 1) % raids.length];
-    const targetMinute = m === 20 ? 30 : 0;
+    const base = new Date(ph);
+    base.setMinutes(m === 20 ? 30 : 60, 0, 0);
 
-    const secondsLeft =
-      (targetMinute - m + (targetMinute <= m ? 60 : 0)) * 60;
+    const upcomingTime = formatHM(base);
+    const upcoming = dungeonSchedule[upcomingTime];
+    if (!upcoming) return;
 
+    const secondsLeft = (base - ph) / 1000;
     await postReminder(channel, upcoming, secondsLeft);
   }
 }
